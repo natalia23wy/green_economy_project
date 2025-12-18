@@ -1,3 +1,6 @@
+import json
+from urllib.request import urlopen
+
 import pandas as pd
 
 # Import CO2 datas
@@ -36,12 +39,7 @@ def fetch_owid_co2_france(start_year=1990, end_year=2024):
     return df
 
 
-
 # Import GDP datas
-import json
-from urllib.request import urlopen
-import pandas as pd
-
 def fetch_worldbank_gdp_france(start_year=1990, end_year=2024):
     url = (
         "https://api.worldbank.org/v2/country/FRA/"
@@ -66,11 +64,7 @@ def fetch_worldbank_gdp_france(start_year=1990, end_year=2024):
     return df
 
 
-
 # Import unemployment rate datas
-import json
-from urllib.request import urlopen
-
 def fetch_worldbank_unemployment_france(start_year=1990, end_year=2024):
     url = (
         "https://api.worldbank.org/v2/country/FRA/"
@@ -99,8 +93,6 @@ def fetch_worldbank_unemployment_france(start_year=1990, end_year=2024):
 
 
 # Import CPI based inflation
-import json
-
 def fetch_worldbank_inflation_france(start_year=1990, end_year=2024):
     url = (
         "https://api.worldbank.org/v2/country/FRA/"
@@ -146,3 +138,4 @@ def build_dataset_france(start_year=1990, end_year=2024, save=True):
         df.to_csv("data/processed/france_1990_2024.csv", index=False)
 
     return df
+    
