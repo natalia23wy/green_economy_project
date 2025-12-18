@@ -70,7 +70,6 @@ def fetch_worldbank_gdp_france(start_year=1990, end_year=2024):
 # Import unemployment rate datas
 import json
 from urllib.request import urlopen
-import pandas as pd
 
 def fetch_worldbank_unemployment_france(start_year=1990, end_year=2024):
     url = (
@@ -101,8 +100,6 @@ def fetch_worldbank_unemployment_france(start_year=1990, end_year=2024):
 
 # Import CPI based inflation
 import json
-from urllib.request import urlopen
-import pandas as pd
 
 def fetch_worldbank_inflation_france(start_year=1990, end_year=2024):
     url = (
