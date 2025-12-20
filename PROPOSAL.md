@@ -19,11 +19,9 @@ o boosting: XGBoost, for high prediction power and controllable over-fitting
 
 The project will rely on public datasets covering for France between 1990 and 2024:
 - Real GDP: https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?locations=FR
-- Unemployment rate: https://www.oecd.org/en/data/indicators/unemployment-
-rate.html
+- Unemployment rate: https://www.oecd.org/en/data/indicators/unemployment-rate.html
 - CPI based inflation: https://www.oecd.org/en/data/indicators/inflation-cpi.html
-- Total CO2 & per capita: https://ourworldindata.org/co2-and-greenhouse-gas-
-emissions
+- Total CO2 & per capita: https://ourworldindata.org/co2-and-greenhouse-gas-emissions
 
 ## Expected challenges and how to address them
 First, economic and environmental data do not always share the same reporting periods or completeness, which can lead to inconsistencies. To address this, all variables will be aligned by year, missing values will be handled through linear interpolation if needed.
