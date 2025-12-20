@@ -138,4 +138,27 @@ def build_dataset_france(start_year=1990, end_year=2024, save=True):
         df.to_csv("data/processed/france_1990_2024.csv", index=False)
 
     return df
-    
+
+# Split the dataset into a fixed time train/test split
+def train_test_split(
+    df,
+    target_col="co2_million_tonnes",
+    train_end_year=2020,
+):
+
+    # Train: up to train_end_year
+    # Test: after train_end_year
+    df = df.sort_values("year").reset_index(drop=True)
+
+    feature_cols = [c for c in df.columns if c not in ["year", target_col]]
+
+    train_df = df[df["year"] <= train_end_year]
+    test_df = df[df["year"] > train_end_year]
+
+    X_train = train_df[feature_cols]
+    y_train = train_df[target_col]
+
+    X_test = test_df[feature_cols]
+    y_test = test_df[target_col]
+
+    return X_train, X_test, y_train, y_test, train_df, test_df
