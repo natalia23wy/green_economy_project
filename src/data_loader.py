@@ -1,6 +1,5 @@
 import json
 from urllib.request import urlopen
-
 import pandas as pd
 
 # Import CO2 datas
