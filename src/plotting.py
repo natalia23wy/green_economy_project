@@ -21,7 +21,7 @@ def compute_feature_importance_xgb(xgb_model, feature_names):
     return xgb_importance
 
 
-def plot_rf_feature_importance(rf_importance, output_path="results/feature_importance_rf.png"):
+def plot_rf_feature_importance(rf_importance, output_path="results/rf_feature_importance.png"):
     plt.figure()
     plt.barh(rf_importance.index, rf_importance.values)
     plt.xlabel("Feature importance")
@@ -46,7 +46,7 @@ def plot_xgb_feature_importance(xgb_importance, output_path="results/xgb_feature
 def plot_feature_importance_comparison(
     rf_importance,
     xgb_importance,
-    output_path="results/feature_importance_rf_vs_xgb.png"
+    output_path="results/rf_vs_xgb_feature_importance.png"
 ):
     # ensure same features order
     features = rf_importance.index

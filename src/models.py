@@ -42,4 +42,4 @@ def train_xgboost(X_train, y_train, random_state=42):
 
 # Generate predictions using trained model
 def predict(model, X_test):
-    return model.predict(X_test
+    return model.predict(X_test)
