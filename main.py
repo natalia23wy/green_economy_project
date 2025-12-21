@@ -4,10 +4,9 @@ from src.evaluation import evaluate_regression
 from src.plotting import (
     compute_feature_importance_rf,
     compute_feature_importance_xgb,
-    plot_rf_feature_importance,
-    plot_xgb_feature_importance,
     plot_feature_importance_comparison,
     plot_standardized_trends,
+    plot_actual_vs_predicted_full_rf_xgb,
 )
 
 
@@ -23,34 +22,47 @@ def main():
     ols_pred = predict(ols_model, X_test)
     ols_metrics = evaluate_regression(y_test, ols_pred)
 
+
     # 4) Random Forest
     rf_model = train_random_forest(X_train, y_train)
     rf_pred = predict(rf_model, X_test)
     rf_metrics = evaluate_regression(y_test, rf_pred)
+
 
     # 5) XGBoost
     xgb_model = train_xgboost(X_train, y_train)
     xgb_pred = predict(xgb_model, X_test)
     xgb_metrics = evaluate_regression(y_test, xgb_pred)
 
-    # 6) Feature importance + plots
+
+    # 6) Feature importance values and plot
     rf_importance = compute_feature_importance_rf(rf_model, X_train.columns)
     xgb_importance = compute_feature_importance_xgb(xgb_model, X_train.columns)
 
-    print("Feature importance (Random Forest):")
+    print("Random Forest feature importance:")
     print(rf_importance)
     print("XGBoost feature importance:")
     print(xgb_importance)
 
-    plot_rf_feature_importance(rf_importance, "results/rf_feature_importance.png")
-    plot_xgb_feature_importance(xgb_importance, "results/xgb_feature_importance.png")
     plot_feature_importance_comparison(
         rf_importance,
         xgb_importance,
         "results/rf_vs_xgb_feature_importance.png"
     )
 
-    # 7) Standardized trends plot
+
+    # 7) Comparison plot: Actual vs Predicted CO2 emissions
+    feature_cols = X_train.columns
+
+    plot_actual_vs_predicted_full_rf_xgb(
+        df=df,
+        rf_pred_full=predict(rf_model, df[feature_cols]),
+        xgb_pred_full=predict(xgb_model, df[feature_cols]),
+        train_end_year=2020,
+        output_path="results/actual_vs_predicted_rf_xgb.png",
+    )
+
+    # 8) Standardized trends plot
     cols_to_plot = [
         "co2_million_tonnes",
         "gdp_real_constant_usd",
@@ -59,7 +71,7 @@ def main():
     ]
     plot_standardized_trends(df, cols_to_plot, "results/standardized_trends_co2_macro_france.png")
 
-    # 8) Print results
+    # 9) Print results
     print("Test years:", list(test_df["year"]))
     print("OLS metrics:", ols_metrics)
     print("RF metrics:", rf_metrics)

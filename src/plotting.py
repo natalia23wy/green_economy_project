@@ -91,3 +91,55 @@ def plot_standardized_trends(
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
+
+
+def plot_actual_vs_predicted_full_rf_xgb(
+    df,
+    rf_pred_full,
+    xgb_pred_full,
+    train_end_year=2020,
+    output_path="results/actual_vs_predicted_rf_xgb.png",
+):
+    plt.figure(figsize=(10, 6))
+
+    # Actual CO2
+    plt.plot(
+        df["year"],
+        df["co2_million_tonnes"],
+        label="Actual CO₂",
+        color="black",
+        linewidth=2,
+    )
+
+    # Predicted CO2
+    plt.plot(
+        df["year"],
+        rf_pred_full,
+        linestyle="--",
+        color="blue",
+        label="RF prediction",
+    )
+    plt.plot(
+        df["year"],
+        xgb_pred_full,
+        linestyle="--",
+        color="orange",
+        label="XGB prediction",
+    )
+
+    # Train / test split line
+    plt.axvline(
+        x=train_end_year,
+        color="gray",
+        linestyle=":",
+        label="Train / Test split",
+    )
+
+    plt.xlabel("Year")
+    plt.ylabel("CO₂ emissions (million tonnes)")
+    plt.title("Actual vs Predicted CO₂ Emissions (France)")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
