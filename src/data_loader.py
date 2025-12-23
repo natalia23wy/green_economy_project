@@ -1,7 +1,9 @@
-import json
 from urllib.request import urlopen
-import pandas as pd
 from sklearn.preprocessing import StandardScaler
+
+import json
+import pandas as pd
+import requests
 
 # Import CO2 datas
 OWID_CO2_URL = (
@@ -120,30 +122,115 @@ def fetch_worldbank_inflation_france(start_year=1990, end_year=2024):
     return df
 
 
-# Import renewable energy share
+# Import renewable energy share datas
 def fetch_owid_renewable_france(start_year=1990, end_year=2024):
     url = (
         "https://ourworldindata.org/grapher/"
         "share-of-final-energy-consumption-from-renewable-sources.csv"
         "?v=1&csvType=full&useColumnShortNames=true"
     )
-
+    
     df = pd.read_csv(
         url,
         storage_options={"User-Agent": "Our World In Data data fetch/1.0"}
     )
-
+    
+    # Filter France
     df = df[df["Entity"] == "France"].copy()
-
+    
+    # Keep relevant columns
+    df = df[["Year", "_7_2_1__eg_fec_rnew"]]
+    
+    # Rename
     df = df.rename(
-        columns={"Year": "year", "share_energy_renewables": "renewable_energy_pct"}
+        columns={
+            "Year": "year",
+            "_7_2_1__eg_fec_rnew": "renewable_energy_pct"
+        }
     )
-
+    
+    # Filter years
     df = df[(df["year"] >= start_year) & (df["year"] <= end_year)]
-
+    
+    # Drop missing values
     df = df.dropna().reset_index(drop=True)
-
+    
     return df
+
+
+def fetch_eurostat_ipi_france(start_year=1990, end_year=2024):    
+    # Eurostat API endpoint
+    url = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/sts_inpr_m"
+    
+    # Query parameters: France, non-seasonally adjusted (NSA)
+    params = {
+        "geo": "FR",
+        "s_adj": "NSA",
+    }
+    
+    # Request data from Eurostat
+    r = requests.get(url, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+    
+    # Extract dimension metadata
+    dims = data["dimension"]
+    dim_ids = data["id"]
+    size = data["size"]
+    values = data.get("value", {})
+    
+    # Helper function: decode flat index to multi-dimensional coordinates
+    # Eurostat stores series in a flat index format
+    def decode(flat_i, size_list):
+        coords = []
+        for s in reversed(size_list):
+            coords.append(flat_i % s)
+            flat_i //= s
+        return list(reversed(coords))
+    
+    # Build inverse lookup for each dimension: index -> label
+    inv_maps = {}
+    for dim_id in dim_ids:
+        cat = dims[dim_id]["category"]["index"]  # label -> idx
+        inv_maps[dim_id] = {v: k for k, v in cat.items()}  # idx -> label
+    
+    # Parse all observations
+    rows = []
+    for flat_i_str, val in values.items():
+        flat_i = int(flat_i_str)
+        coords = decode(flat_i, size)
+        rec = {}
+        for dim_id, coord in zip(dim_ids, coords):
+            rec[dim_id] = inv_maps[dim_id][coord]
+        rec["value"] = val
+        rows.append(rec)
+    
+    # Create DataFrame from parsed data
+    df = pd.DataFrame(rows)
+    
+    # Extract year from time dimension (format: "1990M01" -> 1990)
+    df["year"] = df["time"].str.slice(0, 4).astype(int)
+    
+    # Filter by requested year range
+    df = df[(df["year"] >= start_year) & (df["year"] <= end_year)].copy()
+    
+    # Eurostat may return multiple units/series
+    # Pick the most frequent unit to keep one consistent series
+    if "unit" in df.columns:
+        unit_choice = df["unit"].value_counts().idxmax()
+        df = df[df["unit"] == unit_choice].copy()
+    
+    # Aggregate monthly IPI to annual mean
+    df = (
+        df.groupby("year", as_index=False)["value"]
+        .mean()
+        .rename(columns={"value": "industrial_production_index"})  # Renamed for consistency
+        .sort_values("year")
+        .reset_index(drop=True)
+    )
+    
+    return df
+
 
 # Merge all datasets into a single dataframe and create the final dataset
 def build_dataset_france(start_year=1990, end_year=2024, save=True, interpolate=False):
@@ -157,6 +244,8 @@ def build_dataset_france(start_year=1990, end_year=2024, save=True, interpolate=
     co2 = fetch_owid_co2_france(start_year, end_year)
     unemployment = fetch_worldbank_unemployment_france(start_year, end_year)
     inflation = fetch_worldbank_inflation_france(start_year, end_year)
+    #ipi = fetch_eurostat_ipi_france(start_year, end_year)
+    #renewable = fetch_owid_renewable_france(start_year, end_year)
 
     # Start with outer merge to keep all years
     df = (
@@ -164,8 +253,12 @@ def build_dataset_france(start_year=1990, end_year=2024, save=True, interpolate=
         .merge(co2, on="year", how="outer")
         .merge(unemployment, on="year", how="outer")
         .merge(inflation, on="year", how="outer")
-        .merge(renewable, on="year", how="outer")
+        #.merge(ipi, on="year", how="outer")
+        #.merge(renewable, on="year", how="outer")
     )
+
+    # drop gdp try to keep only IPI to avoid multicolinearity
+    #df = df.drop(columns=['gdp_real_constant_usd'])
 
     # Sort by year
     df = df.sort_values("year").reset_index(drop=True)
@@ -180,6 +273,9 @@ def build_dataset_france(start_year=1990, end_year=2024, save=True, interpolate=
         df = df.dropna()
 
     df = df.reset_index(drop=True)
+
+    # year as numeric feature to capture time trend
+    df['year_numeric'] = df['year']
 
     if save:
         df.to_csv("data/processed/france_1990_2024.csv", index=False)
