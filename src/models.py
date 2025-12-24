@@ -1,42 +1,65 @@
-# Model definitions and training functions
+"""
+Model definitions and training functions for CO2 emissions prediction.
+This module implements three regression models with hyperparameters optimized for small dataset performance (n=25 training samples).
+"""
 
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import RandomForestRegressor
-
 from xgboost import XGBRegressor
 
 
-# Train a linear regression (OLS) model
-def train_linear_regression(X_train, y_train):
-    model = LinearRegression()
+# OLS
+def train_linear_regression(X_train, y_train, alpha=0.1):
+    """
+    Train OLS with optional Ridge regularization.
+    """
+    if alpha > 0:
+        model = Ridge(alpha=alpha, random_state=42)
+    else:
+        model = LinearRegression()
+    
     model.fit(X_train, y_train)
     return model
 
 
-# Train a Random Forest regressor
+# Random Forest
 def train_random_forest(X_train, y_train, random_state=42):
+    """
+    Train Random Forest regressor with conservative hyperparameters.
+    """
     model = RandomForestRegressor(
-        n_estimators=500,
+        n_estimators=100,
+        max_depth=5,
+        min_samples_split=4,
+        min_samples_leaf=2,
+        max_features=0.8,
         random_state=random_state,
-        max_depth=None,
+        n_jobs=-1
     )
     model.fit(X_train, y_train)
     return model
 
 
-# Train an XGBoost regressor
+# XGBoost
 def train_xgboost(X_train, y_train, random_state=42):
+    """
+    Train XGBoost regressor with regularization.
+    """
     model = XGBRegressor(
-        n_estimators=800,
+        n_estimators=200,
         learning_rate=0.05,
-        max_depth=4,
-        subsample=0.9,
-        colsample_bytree=0.9,
-        reg_lambda=1.0,
+        max_depth=3,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        reg_lambda=2.0,
+        reg_alpha=0.5,
+        min_child_weight=3,
         random_state=random_state,
-        objective="reg:squarederror",
+        objective="reg:squarederror"
     )
+
     model.fit(X_train, y_train)
+
     return model
 
 
