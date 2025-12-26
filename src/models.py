@@ -1,23 +1,39 @@
 """
 Model definitions and training functions for CO2 emissions prediction.
-This module implements three regression models with hyperparameters optimized for small dataset performance (n=25 training samples).
+This module implements four regression models with hyperparameters optimized for small dataset performance (n=25 training samples).
 """
 
-from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 
 
 # OLS
-def train_linear_regression(X_train, y_train, alpha=0.1):
+def train_ols(X_train, y_train, alpha=0.1):
     """
-    Train OLS with optional Ridge regularization.
+    Train Ordinary Least Squares regression.
     """
-    if alpha > 0:
-        model = Ridge(alpha=alpha, random_state=42)
-    else:
-        model = LinearRegression()
-    
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    return model
+
+
+# Ridge
+def train_ridge(X_train, y_train, alpha=0.1):
+    """
+    Train Ridge regression (L2 REGULARIZATION).
+    """
+    model = Ridge(alpha=alpha, random_state=42)
+    model.fit(X_train, y_train)
+    return model
+
+
+# Lasso
+def train_lasso(X_train, y_train, alpha=0.1):
+    """
+    Train Lasso regression model (L1 REGULARIZATION).
+    """
+    model = Lasso(alpha=alpha, random_state=42, max_iter=10000)
     model.fit(X_train, y_train)
     return model
 
@@ -59,7 +75,7 @@ def train_xgboost(X_train, y_train, random_state=42):
     )
 
     model.fit(X_train, y_train)
-
+    
     return model
 
 

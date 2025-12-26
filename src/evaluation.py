@@ -194,3 +194,61 @@ def compare_feature_importance(models_dict, feature_names):
     df_comparison = pd.concat(importance_dfs, axis=1)
     
     return df_comparison
+
+
+def explain_model_shap(model, X_data, model_type='tree', feature_names=None):
+    """
+    Generate SHAP explanations for a trained model.
+    """
+    try:
+        import shap
+    except ImportError:
+        raise ImportError("SHAP not installed. Install with: pip install shap")
+    
+    # Get feature names
+    if feature_names is None:
+        if isinstance(X_data, pd.DataFrame):
+            feature_names = X_data.columns.tolist()
+        else:
+            feature_names = [f'Feature {i}' for i in range(X_data.shape[1])]
+    
+    # Create appropriate explainer
+    if model_type == 'tree':
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_data)
+    elif model_type == 'linear':
+        explainer = shap.LinearExplainer(model, X_data)
+        shap_values = explainer.shap_values(X_data)
+    else:
+        raise ValueError(f"Unknown model_type: {model_type}")
+    
+    return shap_values, explainer
+
+
+def compare_shap_importance(models_dict, X_data, feature_names=None):
+    """
+    Compare SHAP-based feature importance across multiple models.
+    """
+    if feature_names is None:
+        if isinstance(X_data, pd.DataFrame):
+            feature_names = X_data.columns.tolist()
+        else:
+            feature_names = [f'Feature {i}' for i in range(X_data.shape[1])]
+    
+    importance_results = {}
+    
+    for model_name, (model, model_type) in models_dict.items():
+        shap_values, _ = explain_model_shap(model, X_data, model_type, feature_names)
+        
+        # Calculate mean absolute SHAP values
+        mean_abs_shap = np.abs(shap_values).mean(axis=0)
+        importance_results[model_name] = mean_abs_shap
+    
+    # Create DataFrame
+    df_comparison = pd.DataFrame(importance_results, index=feature_names)
+    
+    # Normalize to 100 for comparison
+    for col in df_comparison.columns:
+        df_comparison[col] = (df_comparison[col] / df_comparison[col].max()) * 100
+    
+    return df_comparison
