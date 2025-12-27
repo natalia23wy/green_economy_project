@@ -1,13 +1,39 @@
-from src.data_loader import build_dataset_france, train_test_split, train_val_test_split
-from src.models import train_linear_regression, train_random_forest, train_xgboost, predict
-from src.evaluation import evaluate_regression, regression_diagnostics, mape
+"""
+Main script for CO2 emissions prediction modeling.
+
+This script orchestrates the complete machine learning pipeline:
+    - Data loading and preprocessing for France economic indicators
+    - Training multiple regression models (OLS, Ridge, Lasso, Random Forest, XGBoost, Gradient Boosting)
+    - Model evaluation and performance comparison
+    - Feature importance analysis using both built-in importance and SHAP values
+    - Visualization generation for results interpretation
+
+Usage:
+    - python main.py
+"""
+
+from src.data_loader import build_dataset_france, train_val_test_split, scale_features
+from src.models import train_ols, train_ridge, train_lasso, train_random_forest, train_xgboost, train_gradient_boosting
+from src.evaluation import (
+    evaluate_model, 
+    print_evaluation_report, 
+    compare_models,
+    detect_overfitting,
+    test_ridge_regularization,
+    compare_feature_importance,
+    explain_linear_model_shap,
+    explain_tree_model_shap,
+    compare_shap_importance
+)
+
 from src.plotting import (
-    compute_feature_importance_rf,
-    compute_feature_importance_xgb,
-    plot_feature_importance_comparison,
-    plot_standardized_trends,
-    plot_actual_vs_predicted_co2,
-    plot_actual_vs_predicted_co2_train_val_test,
+    plot_temporal_overview,
+    plot_predictions_timeline,
+    plot_overfitting_diagnosis,
+    plot_model_comparison,
+    plot_feature_importance,
+    plot_shap_summary,
+    plot_shap_comparison
 )
 
 
@@ -20,194 +46,168 @@ def main():
     X_train, X_val, X_test, y_train, y_val, y_test, train_df, val_df, test_df = train_val_test_split(df)
     X_train_s, X_val_s, X_test_s, scaler = scale_features(X_train, X_val, X_test)
 
+
     # =========================================================================
     # 2. TRAIN MODELS
     # =========================================================================
 
-    ols_model = train_linear_regression(X_train_s, y_train, alpha=0.0)
+    ridge_test_results = test_ridge_regularization(
+        train_ridge, X_train_s, y_train, X_val_s, y_val,
+        alphas=[0, 0.1, 1.0, 10.0]
+    )
+    print(ridge_test_results.to_string(index=False))
+
+    ols_model = train_ols(X_train_s, y_train)
+    ridge_model = train_ridge(X_train_s, y_train, alpha=0.1)
+    lasso_model = train_lasso(X_train_s, y_train, alpha=0.1)
     rf_model = train_random_forest(X_train_s, y_train)
     xgb_model = train_xgboost(X_train_s, y_train)
+    gb_model = train_gradient_boosting(X_train_s, y_train)
 
 
-    ols_pred = predict(ols_model, X_test)
-    ols_metrics = evaluate_regression(y_test, ols_pred)
+    # =========================================================================
+    # 3. EVALUATE MODELS
+    # =========================================================================
 
+    ols_results = evaluate_model(ols_model, X_train_s, y_train, X_val_s, y_val, X_test_s, y_test, model_name="OLS")
+    ridge_results = evaluate_model(ridge_model, X_train_s, y_train, X_val_s, y_val, X_test_s, y_test, model_name="Ridge")
+    lasso_results = evaluate_model(lasso_model, X_train_s, y_train, X_val_s, y_val, X_test_s, y_test, model_name="Lasso")
+    rf_results = evaluate_model(rf_model, X_train_s, y_train, X_val_s, y_val, X_test_s, y_test, model_name="Random Forest")
+    xgb_results = evaluate_model(xgb_model, X_train_s, y_train, X_val_s, y_val, X_test_s, y_test, model_name="XGBoost")
 
+    print("\n" + "=" * 70)
+    print("MODEL PERFORMANCE")
+
+    print_evaluation_report(ols_results)
+    print_evaluation_report(ridge_results)
+    print_evaluation_report(lasso_results)
+    print_evaluation_report(rf_results)
+    print_evaluation_report(xgb_results)
     
+    comparison_df = compare_models([ols_results, ridge_results, lasso_results, rf_results, xgb_results])
 
-        # Predictions
-    rf_pred = predict(rf_model, X_test)
-    rf_train_pred = predict(rf_model, X_train)
+    print("\n" + "=" * 70)
+    print("VALIDATION SET COMPARISON")
 
-        # Test metrics (MAE / RMSE / R2)
-    rf_metrics = evaluate_regression(y_test, rf_pred)
+    print(comparison_df[comparison_df['Split'] == 'Val'].to_string(
+        index=False,
+        float_format=lambda x: '%.3f' % x if abs(x) < 100 else '%.2e' % x)
+        )
 
-        # Train vs test diagnostics (R2 / RMSE / MAPE)
-    rf_diag = regression_diagnostics(
-        y_train, rf_train_pred,
-        y_test, rf_pred
+    print("\n" + "=" * 70)
+    print("OVERFITTING DIAGNOSIS")
+
+    for results in [ridge_results, rf_results, xgb_results]:
+        diag = detect_overfitting(results)
+        print(f"\n{results['model_name']}:")
+        print(f"   Train R²: {diag['train_r2']:.3f}")
+        print(f"   Val R²:   {diag['val_r2']:.3f}")
+        print(f"   Gap:      {diag['r2_gap']:.3f}")
+        print(f"   Severity: {diag['overfitting_severity']}")
+
+
+    # =========================================================================
+    # 4. GENERATE VISUALIZATIONS
+    # =========================================================================
+
+    # Temporal overview
+    plot_temporal_overview(train_df, val_df, test_df, save_path='results/temporal_overview.png')
+
+        # Predictions timeline (Ridge - best model)
+    plot_predictions_timeline(
+        train_df, val_df, test_df,
+        y_train, y_val, y_test,
+        ridge_results['train']['predictions'],
+        ridge_results['val']['predictions'],
+        ridge_results['test']['predictions'],
+        model_name='Ridge (α=0.1)',
+        save_path='results/predictions_timeline.png'
     )
+    
+    
+    # Overfitting diagnosis
+    models_dict = {
+        'OLS': ols_model,
+        'Ridge': ridge_model,
+        'Lasso': lasso_model,
+        'Random Forest': rf_model,
+        'XGBoost': xgb_model,
+        'Gradient Boosting': gb_model
+    }
+    plot_overfitting_diagnosis(models_dict, X_train_s, y_train, X_val_s, y_val,
+                               save_path='results/overfitting_diagnosis.png')
+    
+    
+    # Model comparison
+    plot_model_comparison(comparison_df, save_path='results/model_comparison.png')
+    
+    
+    # Feature importance analysis
+    feature_names = list(X_train.columns)
+    models_importance = {
+        'OLS': (ols_model, 'linear'),
+        'Ridge': (ridge_model, 'linear'),
+        'Lasso': (lasso_model, 'linear'),
+        'Random Forest': (rf_model, 'tree'),
+        'XGBoost': (xgb_model, 'tree'),
+        'Gradient Boosting': (gb_model, 'tree')
+    }
+    importance_df = compare_feature_importance(models_importance, feature_names)
+    plot_feature_importance(importance_df, save_path='results/feature_importance.png')
+    
+    
+    # Print feature importance table
+    print("\n" + "=" * 70)
+    print("FEATURE IMPORTANCE ANALYSIS")
+    
+    print("\nFeature importance (normalized to 100%):")
+    print(importance_df.to_string(float_format="%.2f"))
+    
+    # Identify most important feature per model
+    print("\n" + "-" * 70)
+    print("Most predictive features per model:")
+    for model_name in importance_df.columns:
+        top_feature = importance_df[model_name].idxmax()
+        top_value = importance_df[model_name].max()
+        print(f"  {model_name}: {top_feature} ({top_value:.2f})")
+    print("-" * 70)
+ 
 
-        # MAPE on test and accuracy proxy
-    rf_test_mape = mape(y_test, rf_pred)
-    rf_test_accuracy = 1 - rf_test_mape
+    # =========================================================================
+    # 5. SHAP ANALYSIS (OPTIONAL)
+    # =========================================================================
 
-
-    # 5) XGBoost     
-        # Predictions
-    xgb_pred = predict(xgb_model, X_test)
-    xgb_train_pred = predict(xgb_model, X_train)
-
-        # Test metrics (MAE / RMSE / R2)
-    xgb_metrics = evaluate_regression(y_test, xgb_pred)
-
-        # Train vs test diagnostics (R2/RMSE/MAPE)
-    xgb_diag = regression_diagnostics(
-        y_train, xgb_train_pred,
-        y_test, xgb_pred
+    # Separate models by type
+    linear_models = {
+        'OLS': ols_model,
+        'Ridge': ridge_model,
+        'Lasso': lasso_model
+    }
+     
+    tree_models = {
+        'Random Forest': rf_model,
+        'XGBoost': xgb_model,
+        'Gradient Boosting': gb_model
+    }
+      
+    # Generate SHAP comparison
+    shap_comparison = compare_shap_importance(
+        linear_models, tree_models,
+        X_train_s, X_train_s,
+        feature_names
     )
+       
+    # Plot SHAP comparison
+    plot_shap_comparison(shap_comparison, save_path='results/shap_comparison.png')
+     
 
-        # MAPE on test and accuracy proxy
-    xgb_test_mape = mape(y_test, xgb_pred)
-    xgb_test_accuracy = 1 - xgb_test_mape
+    print("\nSHAP-based feature importance comparison:")
+    print(shap_comparison.to_string(float_format="%.2f"))
 
+    # Generate individual SHAP plots for best model (Ridge)
+    shap_values, explainer = explain_linear_model_shap(ridge_model, X_train_s, feature_names)
+    plot_shap_summary(shap_values, X_train_s, feature_names, save_path='results/shap_summary_ridge.png')
 
-    # 6) Feature importance values and plot
-    rf_importance = compute_feature_importance_rf(rf_model, X_train.columns)
-    xgb_importance = compute_feature_importance_xgb(xgb_model, X_train.columns)
-
-    plot_feature_importance_comparison(
-        rf_importance,
-        xgb_importance,
-        "results/rf_vs_xgb_feature_importance.png"
-    )
-
-
-    # 7) Comparison plot: Actual vs Predicted CO2 emissions
-    feature_cols = X_train.columns
-
-    plot_actual_vs_predicted_co2(
-        df=df,
-        rf_pred_full=predict(rf_model, df[feature_cols]),
-        xgb_pred_full=predict(xgb_model, df[feature_cols]),
-        train_end_year=2020,
-        output_path="results/actual_vs_predicted_co2.png",
-    )
-
-
-    plot_actual_vs_predicted_co2_train_val_test(
-        df=df,
-        rf_pred_full=predict(rf_model, df[feature_cols]),
-        xgb_pred_full=predict(xgb_model, df[feature_cols]),
-        train_end_year=2015,
-        val_end_year=2020,
-        output_path="results/actual_vs_predicted_co2_train_val_test.png",
-    )
-
-    # 8) Standardized trends plot
-    cols_to_plot = [
-        "co2_million_tonnes",
-        "gdp_real_constant_usd",
-        "unemployment_rate",
-        "inflation_cpi",
-    ]
-    plot_standardized_trends(
-        df,
-        cols_to_plot,
-        output_path="results/standardized_trends_co2_macro_france.png"
-    )
-
-
-
-        # Validation analysis (optional)
-    X_train_v, X_val, X_test_v, y_train_v, y_val, y_test_v, _, val_df, _ = (train_val_test_split(df))
-
-    rf_model_val = train_random_forest(X_train_v, y_train_v)
-
-    rf_val_pred = predict(rf_model_val, X_val)
-    rf_test_pred = predict(rf_model_val, X_test_v)
-
-    print("\nValidation vs Test performance (Random Forest)")
-    print("Validation years:", list(val_df["year"]))
-    print("Validation MAPE:", round(mape(y_val, rf_val_pred), 3))
-    print("Test MAPE:", round(mape(y_test_v, rf_test_pred), 3))
-
-
-    # Validation analysis (optional) — XGBoost
-    X_train_v, X_val, X_test_v, y_train_v, y_val, y_test_v, _, val_df, _ = (
-        train_val_test_split(df)
-    )
-
-    xgb_model_val = train_xgboost(X_train_v, y_train_v)
-
-    xgb_val_pred = predict(xgb_model_val, X_val)
-    xgb_test_pred = predict(xgb_model_val, X_test_v)
-
-    print("\nValidation vs Test performance (XGBoost)")
-    print("Validation years:", list(val_df["year"]))
-    print("Validation MAPE:", round(mape(y_val, xgb_val_pred), 3))
-    print("Test MAPE:", round(mape(y_test_v, xgb_test_pred), 3))
-
-    # 9) Print results
-    print("\n==================== RESULTS ====================\n")
-
-    print("Test years:", list(test_df["year"]))
-    print()
-
-    print("OLS metrics")
-    print("  MAE :", int(round(ols_metrics["MAE"])))
-    print("  RMSE:", int(round(ols_metrics["RMSE"])))
-    print("  R2  :", round(ols_metrics["R2"], 3))
-    print()
-
-    print("Random Forest metrics (test)")
-    print("  MAE :", int(round(rf_metrics["MAE"])))
-    print("  RMSE:", int(round(rf_metrics["RMSE"])))
-    print("  R2  :", round(rf_metrics["R2"], 3))
-    print("Random Forest diagnostics (train vs test)")
-    print("  R2_train  :", round(rf_diag["R2_train"], 3))
-    print("  R2_test   :", round(rf_diag["R2_test"], 3))
-    print("  RMSE_train:", int(round(rf_diag["RMSE_train"])))
-    print("  RMSE_test :", int(round(rf_diag["RMSE_test"])))
-    print("  MAPE_train:", round(rf_diag["MAPE_train"], 3))
-    print("  MAPE_test :", round(rf_diag["MAPE_test"], 3))
-    print("  Accuracy (1 - MAPE) test:", round(rf_test_accuracy, 3))
-    print()
-
-    print("XGBoost metrics (test)")
-    print("  MAE :", int(round(xgb_metrics["MAE"])))
-    print("  RMSE:", int(round(xgb_metrics["RMSE"])))
-    print("  R2  :", round(xgb_metrics["R2"], 3))
-    print("XGBoost diagnostics (train vs test)")
-    print("  R2_train  :", round(xgb_diag["R2_train"], 3))
-    print("  R2_test   :", round(xgb_diag["R2_test"], 3))
-    print("  RMSE_train:", int(round(xgb_diag["RMSE_train"])))
-    print("  RMSE_test :", int(round(xgb_diag["RMSE_test"])))
-    print("  MAPE_train:", round(xgb_diag["MAPE_train"], 3))
-    print("  MAPE_test :", round(xgb_diag["MAPE_test"], 3))
-    print("  Accuracy (1 - MAPE) test:", round(xgb_test_accuracy, 3))
-    print()
-
-    print("Feature importance (sorted)")
-    print("  Random Forest:")
-    for name, val in rf_importance.items():
-        print(f"    {name}: {val:.3f}")
-    print("  XGBoost:")
-    for name, val in xgb_importance.items():
-        print(f"    {name}: {val:.3f}")
-
-    print("\n=================================================\n")
 
 if __name__ == "__main__":
     main()
-    
-    # Optional sanity checks (keep commented)
-    # print("Train years:", train_df["year"].min(), "-", train_df["year"].max())
-    # print("Test years:", test_df["year"].min(), "-", test_df["year"].max())
-    # print("Train size:", X_train.shape)
-    # print("Test size:", X_test.shape)
-    
-    # Optional: see actual vs predicted (keep commented)
-    # print("y_test:", [float(v) for v in y_test.values])
-    # print("OLS y_pred:", [float(v) for v in ols_pred])
-    # print("RF  y_pred:", [float(v) for v in rf_pred])

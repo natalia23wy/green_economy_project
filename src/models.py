@@ -4,12 +4,12 @@ This module implements four regression models with hyperparameters optimized for
 """
 
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from xgboost import XGBRegressor
 
 
 # OLS
-def train_ols(X_train, y_train, alpha=0.1):
+def train_ols(X_train, y_train):
     """
     Train Ordinary Least Squares regression.
     """
@@ -76,6 +76,26 @@ def train_xgboost(X_train, y_train, random_state=42):
 
     model.fit(X_train, y_train)
     
+    return model
+
+
+# Gradient Boosting
+def train_gradient_boosting(X_train, y_train, random_state=42):
+    """
+    Train Gradient Boosting regressor with conservative parameters, more robust than
+    XGBoost for small datasets).
+    """
+    model = GradientBoostingRegressor(
+        n_estimators=50,
+        learning_rate=0.1,
+        max_depth=2,
+        min_samples_split=8,
+        min_samples_leaf=4,
+        subsample=0.8,
+        max_features=0.6,
+        random_state=random_state
+    )
+    model.fit(X_train, y_train)
     return model
 
 

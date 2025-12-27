@@ -182,6 +182,7 @@ def get_feature_importance(model, feature_names, model_type='tree'):
 def compare_feature_importance(models_dict, feature_names):
     """
     Compare feature importance across multiple models.
+    All importances are normalized to percentages (0-100%).
     """
     importance_dfs = []
     
@@ -193,12 +194,19 @@ def compare_feature_importance(models_dict, feature_names):
     # Merge all importance DataFrames
     df_comparison = pd.concat(importance_dfs, axis=1)
     
+    # Normalize each column to 0-100%
+    for col in df_comparison.columns:
+        df_comparison[col] = (df_comparison[col] / df_comparison[col].max()) * 100
+
+    # Then normalize each row to sum to 100%
+    df_comparison = df_comparison.div(df_comparison.sum(axis=1), axis=0) * 100
+
     return df_comparison
 
 
-def explain_model_shap(model, X_data, model_type='tree', feature_names=None):
+def explain_linear_model_shap(model, X_data, feature_names=None):
     """
-    Generate SHAP explanations for a trained model.
+    Generate SHAP explanations for linear models (OLS, Ridge, Lasso).
     """
     try:
         import shap
@@ -212,35 +220,52 @@ def explain_model_shap(model, X_data, model_type='tree', feature_names=None):
         else:
             feature_names = [f'Feature {i}' for i in range(X_data.shape[1])]
     
-    # Create appropriate explainer
-    if model_type == 'tree':
-        explainer = shap.TreeExplainer(model)
-        shap_values = explainer.shap_values(X_data)
-    elif model_type == 'linear':
-        explainer = shap.LinearExplainer(model, X_data)
-        shap_values = explainer.shap_values(X_data)
-    else:
-        raise ValueError(f"Unknown model_type: {model_type}")
+    # Linear explainer
+    explainer = shap.LinearExplainer(model, X_data)
+    shap_values = explainer.shap_values(X_data)
     
     return shap_values, explainer
 
 
-def compare_shap_importance(models_dict, X_data, feature_names=None):
+def explain_tree_model_shap(model, X_data, feature_names=None):
     """
-    Compare SHAP-based feature importance across multiple models.
+    Generate SHAP explanations for tree models (Random Forest, XGBoost).
     """
-    if feature_names is None:
-        if isinstance(X_data, pd.DataFrame):
-            feature_names = X_data.columns.tolist()
-        else:
-            feature_names = [f'Feature {i}' for i in range(X_data.shape[1])]
+    try:
+        import shap
+    except ImportError:
+        raise ImportError("SHAP not installed. Install with: pip install shap")
     
+    # Ensure X_data is numpy array
+    if isinstance(X_data, pd.DataFrame):
+        X_data = X_data.values
+    
+    # Get feature names if not provided
+    if feature_names is None:
+        feature_names = [f'Feature {i}' for i in range(X_data.shape[1])]
+    
+    # Tree explainer - MUST use numpy array
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X_data)
+    
+    return shap_values, explainer
+
+
+def compare_shap_importance(linear_models, tree_models, X_data_linear, X_data_tree, feature_names):
+    """
+    Compare SHAP-based feature importance across linear and tree models.
+    """
     importance_results = {}
     
-    for model_name, (model, model_type) in models_dict.items():
-        shap_values, _ = explain_model_shap(model, X_data, model_type, feature_names)
-        
-        # Calculate mean absolute SHAP values
+    # Process linear models
+    for model_name, model in linear_models.items():
+        shap_values, _ = explain_linear_model_shap(model, X_data_linear, feature_names)
+        mean_abs_shap = np.abs(shap_values).mean(axis=0)
+        importance_results[model_name] = mean_abs_shap
+    
+    # Process tree models
+    for model_name, model in tree_models.items():
+        shap_values, _ = explain_tree_model_shap(model, X_data_tree, feature_names)
         mean_abs_shap = np.abs(shap_values).mean(axis=0)
         importance_results[model_name] = mean_abs_shap
     
@@ -250,5 +275,8 @@ def compare_shap_importance(models_dict, X_data, feature_names=None):
     # Normalize to 100 for comparison
     for col in df_comparison.columns:
         df_comparison[col] = (df_comparison[col] / df_comparison[col].max()) * 100
+
+    # Then normalize each row to sum to 100%
+    df_comparison = df_comparison.div(df_comparison.sum(axis=1), axis=0) * 100
     
     return df_comparison

@@ -237,7 +237,6 @@ def build_dataset_france(start_year=1990, end_year=2024, save=True, interpolate=
     
     """
     Build the complete dataset for France years 1990 to 2024.
-    Returns: pd.DataFrame, the merged dataset with all indicators
     """
     
     gdp = fetch_worldbank_gdp_france(start_year, end_year)
@@ -274,8 +273,11 @@ def build_dataset_france(start_year=1990, end_year=2024, save=True, interpolate=
 
     df = df.reset_index(drop=True)
 
-    # year as numeric feature to capture time trend
-    df['year_numeric'] = df['year']
+    # Create year as temporal feature to capture time trend
+    df['year_numeric'] = df['year'] # test with/without
+
+    # Create year-over-year changes instead of absolute year
+    df['year_since_1990'] = df['year'] - 1990
 
     if save:
         df.to_csv("data/processed/france_1990_2024.csv", index=False)
@@ -292,15 +294,6 @@ def train_val_test_split(
 ):
     """
     Split the dataset into train, validation and test sets based on year.
-
-    Parameters:
-        df: pd.DataFrame, Dataset to split
-        target_col: str, Name of the target column
-        train_end_year: int, Last year is included in training set (1990-2015)
-        val_end_year: int, Last year is included in validation set (2016-2020)
-    
-    Returns: 
-        tuple (X_train, X_val, X_test, y_train, y_val, y_test, train_df, val_df, test_df)
     """
 
     # Train: years <= train_end_year
@@ -309,7 +302,7 @@ def train_val_test_split(
 
     df = df.sort_values("year").reset_index(drop=True)
 
-    feature_cols = [c for c in df.columns if c not in ["year", target_col]]
+    feature_cols = [c for c in df.columns if c not in ["year", target_col, "year_numeric", "year_since_1990"]]
 
     train_df = df[df["year"] <= train_end_year]
     val_df = df[(df["year"] > train_end_year) & (df["year"] <= val_end_year)]
@@ -338,17 +331,6 @@ def scale_features(X_train, X_val=None, X_test=None):
 
     The scaler is fit only on the training set to avoid data leakage.
     the same scaler is then used to transform validation and test sets.
-
-    Parameters:
-        X_train: pd.DataFrame, Training features
-        X_val: pd.DataFrame, optional, Validation features
-        X_test: pd.DataFrame, optional, Test features
-    
-    Returns:
-        tuples
-        - if only X_train: (X_train_scaled, scaler)
-        - if X_train and X_val: (X_train_scaled, X_val_scaled, scaler)
-        - if all three: (X_train_scaled, X_val_scaled, X_test_scaled, scaler)
     """
     scaler = StandardScaler()
 
