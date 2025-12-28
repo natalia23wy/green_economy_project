@@ -8,6 +8,7 @@ This module provides functions to:
 
 import numpy as np
 import pandas as pd
+import shap
 from sklearn.metrics import r2_score, mean_absolute_percentage_error, mean_absolute_error, mean_squared_error
 
 
@@ -194,12 +195,8 @@ def compare_feature_importance(models_dict, feature_names):
     # Merge all importance DataFrames
     df_comparison = pd.concat(importance_dfs, axis=1)
     
-    # Normalize each column to 0-100%
-    for col in df_comparison.columns:
-        df_comparison[col] = (df_comparison[col] / df_comparison[col].max()) * 100
-
-    # Then normalize each row to sum to 100%
-    df_comparison = df_comparison.div(df_comparison.sum(axis=1), axis=0) * 100
+    # Normalize so importances sum to 100% per model
+    df_comparison = df_comparison.div(df_comparison.sum(axis=0), axis=1) * 100
 
     return df_comparison
 
@@ -207,12 +204,7 @@ def compare_feature_importance(models_dict, feature_names):
 def explain_linear_model_shap(model, X_data, feature_names=None):
     """
     Generate SHAP explanations for linear models (OLS, Ridge, Lasso).
-    """
-    try:
-        import shap
-    except ImportError:
-        raise ImportError("SHAP not installed. Install with: pip install shap")
-    
+    """    
     # Get feature names
     if feature_names is None:
         if isinstance(X_data, pd.DataFrame):
@@ -231,11 +223,6 @@ def explain_tree_model_shap(model, X_data, feature_names=None):
     """
     Generate SHAP explanations for tree models (Random Forest, XGBoost).
     """
-    try:
-        import shap
-    except ImportError:
-        raise ImportError("SHAP not installed. Install with: pip install shap")
-    
     # Ensure X_data is numpy array
     if isinstance(X_data, pd.DataFrame):
         X_data = X_data.values
@@ -244,7 +231,7 @@ def explain_tree_model_shap(model, X_data, feature_names=None):
     if feature_names is None:
         feature_names = [f'Feature {i}' for i in range(X_data.shape[1])]
     
-    # Tree explainer - MUST use numpy array
+    # Tree explainer, use numpy array
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X_data)
     
@@ -271,12 +258,8 @@ def compare_shap_importance(linear_models, tree_models, X_data_linear, X_data_tr
     
     # Create DataFrame
     df_comparison = pd.DataFrame(importance_results, index=feature_names)
-    
-    # Normalize to 100 for comparison
-    for col in df_comparison.columns:
-        df_comparison[col] = (df_comparison[col] / df_comparison[col].max()) * 100
 
-    # Then normalize each row to sum to 100%
-    df_comparison = df_comparison.div(df_comparison.sum(axis=1), axis=0) * 100
+    # Normalize each row to sum to 100%
+    df_comparison = df_comparison.div(df_comparison.sum(axis=0), axis=1) * 100
     
     return df_comparison

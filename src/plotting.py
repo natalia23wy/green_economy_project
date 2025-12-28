@@ -10,42 +10,66 @@ This module provides functions to:
 
 import numpy as np
 import pandas as pd
+import shap
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 
 def plot_temporal_overview(train_df, val_df, test_df, save_path='results/temporal_overview.png'):
     """
-    Plot temporal evolution of CO2 and GDP across train/val/test splits.
+    Plot temporal evolution of all variables across train/val/test splits using seaborn.
     """
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    fig.suptitle('Dataset Overview: Temporal Trends', fontsize=14, fontweight='bold')
+    # Combine data for seaborn
+    all_data = pd.concat([
+        train_df.assign(Split='Train'),
+        val_df.assign(Split='Val'), 
+        test_df.assign(Split='Test')
+    ])
+    
+    # Set style
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, axes = plt.subplots(2, 2, figsize=(18, 12))
+    fig.suptitle('Dataset Overview: Temporal Trends', fontsize=16, fontweight='bold')
     
     # CO2 over time
-    axes[0].plot(train_df['year'], train_df['co2_million_tonnes'], 'o-', 
-                 label='Train', linewidth=2, markersize=6)
-    axes[0].plot(val_df['year'], val_df['co2_million_tonnes'], 'o-', 
-                 label='Val', linewidth=2, markersize=6)
-    axes[0].plot(test_df['year'], test_df['co2_million_tonnes'], 'o-', 
-                 label='Test', linewidth=2, markersize=6)
-    axes[0].set_xlabel('Year', fontweight='bold')
-    axes[0].set_ylabel('CO2 Emissions (Million Tonnes)', fontweight='bold')
-    axes[0].legend()
-    axes[0].set_title('CO2 Emissions by Split')
-    axes[0].grid(True, alpha=0.3)
+    sns.lineplot(data=all_data, x='year', y='co2_million_tonnes', 
+                hue='Split', style='Split', markers=True, dashes=False,
+                palette=['#2E86AB', '#FF6B6B', '#4ECDC4'], 
+                linewidth=2.5, markersize=8, ax=axes[0, 0])
+    axes[0, 0].set_xlabel('Year', fontweight='bold', fontsize=12)
+    axes[0, 0].set_ylabel('CO2 Emissions (Million Tonnes)', fontweight='bold', fontsize=12)
+    axes[0, 0].set_title('CO2 Emissions by Split', fontweight='bold')
+    axes[0, 0].legend(title='Dataset Split')
     
     # GDP over time
-    axes[1].plot(train_df['year'], train_df['gdp_real_constant_usd'], 'o-', 
-                 color='green', linewidth=2, markersize=6, label='Train')
-    axes[1].plot(val_df['year'], val_df['gdp_real_constant_usd'], 'o-', 
-                 color='green', linewidth=2, markersize=6, label='Val')
-    axes[1].plot(test_df['year'], test_df['gdp_real_constant_usd'], 'o-', 
-                 color='green', linewidth=2, markersize=6, label='Test')
-    axes[1].set_xlabel('Year', fontweight='bold')
-    axes[1].set_ylabel('GDP (Constant USD)', fontweight='bold')
-    axes[1].set_title('GDP Evolution')
-    axes[1].legend()
-    axes[1].grid(True, alpha=0.3)
+    sns.lineplot(data=all_data, x='year', y='gdp_real_constant_usd', 
+                hue='Split', style='Split', markers=True, dashes=False,
+                palette=['#2E86AB', '#FF6B6B', '#4ECDC4'], 
+                linewidth=2.5, markersize=8, ax=axes[0, 1])
+    axes[0, 1].set_xlabel('Year', fontweight='bold', fontsize=12)
+    axes[0, 1].set_ylabel('GDP (Constant USD)', fontweight='bold', fontsize=12)
+    axes[0, 1].set_title('GDP Evolution', fontweight='bold')
+    axes[0, 1].legend(title='Dataset Split')
+    
+    # Unemployment over time
+    sns.lineplot(data=all_data, x='year', y='unemployment_rate', 
+                hue='Split', style='Split', markers=True, dashes=False,
+                palette=['#2E86AB', '#FF6B6B', '#4ECDC4'], 
+                linewidth=2.5, markersize=8, ax=axes[1, 0])
+    axes[1, 0].set_xlabel('Year', fontweight='bold', fontsize=12)
+    axes[1, 0].set_ylabel('Unemployment Rate (%)', fontweight='bold', fontsize=12)
+    axes[1, 0].set_title('Unemployment Rate Evolution', fontweight='bold')
+    axes[1, 0].legend(title='Dataset Split')
+    
+    # Inflation over time
+    sns.lineplot(data=all_data, x='year', y='inflation_cpi', 
+                hue='Split', style='Split', markers=True, dashes=False,
+                palette=['#2E86AB', '#FF6B6B', '#4ECDC4'], 
+                linewidth=2.5, markersize=8, ax=axes[1, 1])
+    axes[1, 1].set_xlabel('Year', fontweight='bold', fontsize=12)
+    axes[1, 1].set_ylabel('Inflation (CPI)', fontweight='bold', fontsize=12)
+    axes[1, 1].set_title('Inflation Evolution', fontweight='bold')
+    axes[1, 1].legend(title='Dataset Split')
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -59,25 +83,38 @@ def plot_predictions_timeline(train_df, val_df, test_df,
                                model_name='Model',
                                save_path='results/predictions_timeline.png'):
     """
-    Plot actual vs predicted CO2 emissions over time.
+    Plot actual vs predicted CO2 emissions over time using seaborn.
     """
-    fig, ax = plt.subplots(figsize=(12, 6))
+    # Create dataframe for seaborn
+    timeline_data = pd.DataFrame({
+        'year': pd.concat([train_df['year'], val_df['year'], test_df['year']], ignore_index=True),
+        'value': pd.concat([pd.Series(y_train.values), pd.Series(y_val.values), pd.Series(y_test.values)], ignore_index=True),
+        'type': ['Actual'] * (len(y_train) + len(y_val) + len(y_test))
+    })
     
-    # Concatenate data
-    all_years = pd.concat([train_df['year'], val_df['year'], test_df['year']])
-    all_actual = pd.concat([pd.Series(y_train.values), pd.Series(y_val.values), pd.Series(y_test.values)])
-    all_pred = np.concatenate([train_pred, val_pred, test_pred])
+    # Add predictions
+    pred_data = pd.DataFrame({
+        'year': pd.concat([train_df['year'], val_df['year'], test_df['year']], ignore_index=True),
+        'value': np.concatenate([train_pred, val_pred, test_pred]),
+        'type': [f'{model_name} Predicted'] * (len(train_pred) + len(val_pred) + len(test_pred))
+    })
     
-    # Plot
-    ax.plot(all_years, all_actual, 'o-', label='Actual', 
-            linewidth=2.5, markersize=7, color='black')
-    ax.plot(all_years, all_pred, 's--', label=f'{model_name} Predicted', 
-            alpha=0.7, linewidth=2, markersize=6, color='red')
+    all_data = pd.concat([timeline_data, pred_data])
+    
+    # Set style
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(14, 7))
+    
+    # Plot with seaborn
+    sns.lineplot(data=all_data, x='year', y='value', hue='type', 
+                style='type', markers=True, dashes=False,
+                palette=['black', '#FF6B6B'], 
+                linewidth=2.5, markersize=8, ax=ax)
     
     # Split lines
-    ax.axvline(2015.5, color='blue', linestyle='--', alpha=0.5, 
+    ax.axvline(2015.5, color='blue', linestyle='--', alpha=0.7, 
                linewidth=2, label='Train/Val split')
-    ax.axvline(2020.5, color='orange', linestyle='--', alpha=0.5, 
+    ax.axvline(2020.5, color='orange', linestyle='--', alpha=0.7, 
                linewidth=2, label='Val/Test split')
     
     ax.set_xlabel('Year', fontweight='bold', fontsize=12)
@@ -85,7 +122,6 @@ def plot_predictions_timeline(train_df, val_df, test_df,
     ax.set_title(f'Actual vs Predicted CO2 Emissions - {model_name}', 
                  fontweight='bold', fontsize=14)
     ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -99,13 +135,12 @@ def plot_overfitting_diagnosis(models_dict, X_train, y_train, X_val, y_val,
     Create scatter plots of actual vs predicted for overfitting diagnosis.
     """
     n_models = len(models_dict)
-    fig, axes = plt.subplots(1, n_models, figsize=(5*n_models, 4))
-    
-    if n_models == 1:
-        axes = [axes]
+    # 2 rows, 3 columns layout for better readability
+    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    axes = axes.flatten()  # Flatten to easily iterate
     
     fig.suptitle('Overfitting Diagnosis: Actual vs Predicted', 
-                 fontsize=14, fontweight='bold')
+                 fontsize=16, fontweight='bold')
     
     for idx, (name, model) in enumerate(models_dict.items()):
         # Predictions
@@ -143,30 +178,42 @@ def plot_overfitting_diagnosis(models_dict, X_train, y_train, X_val, y_val,
 
 def plot_model_comparison(comparison_df, save_path='results/model_comparison.png'):
     """
-    Create bar chart comparing models across metrics.
+    Create bar chart comparing models across metrics using seaborn.
     """
     # Filter only validation set for comparison
     df_val = comparison_df[comparison_df['Split'] == 'Val'].copy()
     
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    fig.suptitle('Model Comparison on Validation Set', fontsize=14, fontweight='bold')
+    # Set style
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    fig.suptitle('Model Comparison on Validation Set', fontsize=16, fontweight='bold')
     
     # R² comparison
-    df_val_sorted = df_val.sort_values('R²', ascending=True)
-    axes[0].barh(df_val_sorted['Model'], df_val_sorted['R²'], 
-                 color=['green' if x > 0 else 'red' for x in df_val_sorted['R²']])
-    axes[0].set_xlabel('R² Score', fontweight='bold')
-    axes[0].set_title('R² Score (Higher is Better)')
-    axes[0].axvline(0, color='black', linewidth=0.5)
+    df_val_sorted_r2 = df_val.sort_values('R²', ascending=True)
+    colors_r2 = ['green' if x > 0 else 'red' for x in df_val_sorted_r2['R²']]
+    sns.barplot(data=df_val_sorted_r2, x='R²', y='Model', hue='Model', palette=colors_r2, 
+                ax=axes[0], alpha=0.8, edgecolor='black', linewidth=1, legend=False)
+    axes[0].set_xlabel('R² Score', fontweight='bold', fontsize=12)
+    axes[0].set_title('R² Score (Higher is Better)', fontweight='bold')
+    axes[0].axvline(0, color='black', linewidth=1.5, linestyle='--')
     axes[0].grid(True, alpha=0.3, axis='x')
     
+    # Add value labels
+    for i, v in enumerate(df_val_sorted_r2['R²']):
+        axes[0].text(v + 0.5 if v > 0 else v - 0.5, i, f'{v:.3f}', 
+                    ha='left' if v > 0 else 'right', va='center', fontweight='bold')
+    
     # MAPE comparison
-    df_val_sorted = df_val.sort_values('MAPE', ascending=False)
-    axes[1].barh(df_val_sorted['Model'], df_val_sorted['MAPE'], 
-                 color='orange')
-    axes[1].set_xlabel('MAPE', fontweight='bold')
-    axes[1].set_title('MAPE (Lower is Better)')
+    df_val_sorted_mape = df_val.sort_values('MAPE', ascending=False)
+    sns.barplot(data=df_val_sorted_mape, x='MAPE', y='Model', hue='Model',
+                palette='Oranges_r', ax=axes[1], alpha=0.8, edgecolor='black', linewidth=1, legend=False)
+    axes[1].set_xlabel('MAPE', fontweight='bold', fontsize=12)
+    axes[1].set_title('MAPE (Lower is Better)', fontweight='bold')
     axes[1].grid(True, alpha=0.3, axis='x')
+    
+    # Add value labels
+    for i, v in enumerate(df_val_sorted_mape['MAPE']):
+        axes[1].text(v + 0.01, i, f'{v:.3f}', ha='left', va='center', fontweight='bold')
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -177,28 +224,30 @@ def plot_model_comparison(comparison_df, save_path='results/model_comparison.png
 def plot_residuals(y_true, y_pred, model_name='Model', 
                    save_path='results/residuals.png'):
     """
-    Plot residuals analysis.
+    Plot residuals analysis using seaborn.
     """
     residuals = y_true - y_pred
     
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    fig.suptitle(f'Residual Analysis - {model_name}', fontsize=14, fontweight='bold')
+    # Set style
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    fig.suptitle(f'Residual Analysis - {model_name}', fontsize=16, fontweight='bold')
     
     # Residuals vs Predicted
-    axes[0].scatter(y_pred, residuals, alpha=0.7, s=80, edgecolors='black')
+    sns.scatterplot(x=y_pred, y=residuals, alpha=0.7, s=100, 
+                   edgecolor='black', linewidth=1, ax=axes[0])
     axes[0].axhline(0, color='red', linestyle='--', linewidth=2)
-    axes[0].set_xlabel('Predicted Values', fontweight='bold')
-    axes[0].set_ylabel('Residuals', fontweight='bold')
-    axes[0].set_title('Residuals vs Predicted')
-    axes[0].grid(True, alpha=0.3)
+    axes[0].set_xlabel('Predicted Values', fontweight='bold', fontsize=12)
+    axes[0].set_ylabel('Residuals', fontweight='bold', fontsize=12)
+    axes[0].set_title('Residuals vs Predicted', fontweight='bold')
     
     # Residuals distribution
-    axes[1].hist(residuals, bins=15, edgecolor='black', alpha=0.7)
+    sns.histplot(residuals, bins=15, edgecolor='black', alpha=0.8, 
+                kde=True, color='skyblue', ax=axes[1])
     axes[1].axvline(0, color='red', linestyle='--', linewidth=2)
-    axes[1].set_xlabel('Residuals', fontweight='bold')
-    axes[1].set_ylabel('Frequency', fontweight='bold')
-    axes[1].set_title('Distribution of Residuals')
-    axes[1].grid(True, alpha=0.3, axis='y')
+    axes[1].set_xlabel('Residuals', fontweight='bold', fontsize=12)
+    axes[1].set_ylabel('Frequency', fontweight='bold', fontsize=12)
+    axes[1].set_title('Distribution of Residuals', fontweight='bold')
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -208,47 +257,34 @@ def plot_residuals(y_true, y_pred, model_name='Model',
 
 def plot_feature_importance(importance_df, save_path='results/feature_importance.png'):
     """
-    Plot feature importance comparison across models.
+    Plot feature importance comparison across models using seaborn.
     """
-    # Normalize importance for each model (0-100 scale)
-    df_normalized = importance_df.copy()
-    for col in df_normalized.columns:
-        max_val = df_normalized[col].max()
-        if max_val > 0:
-            df_normalized[col] = (df_normalized[col] / max_val) * 100
+    # Reshape data for seaborn
+    df_melted = importance_df.reset_index().melt(id_vars='feature', var_name='model', value_name='importance')
     
-    fig, ax = plt.subplots(figsize=(12, 6))
+    # Set style
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(14, 7))
     
-    # Create grouped bar chart
-    x = np.arange(len(df_normalized.index))
-    width = 0.25
-    n_models = len(df_normalized.columns)
-    
-    colors = ['#2E86AB', '#A23B72', '#F18F01']  # Blue, Purple, Orange
-    
-    for i, (model_name, color) in enumerate(zip(df_normalized.columns, colors[:n_models])):
-        offset = width * (i - (n_models - 1) / 2)
-        bars = ax.bar(x + offset, df_normalized[model_name], width, 
-                     label=model_name, color=color, alpha=0.8, edgecolor='black', linewidth=1.2)
-        
-        # Add value labels on bars
-        for bar in bars:
-            height = bar.get_height()
-            if height > 5:  # Only show label if bar is tall enough
-                ax.text(bar.get_x() + bar.get_width()/2., height,
-                       f'{height:.0f}',
-                       ha='center', va='bottom', fontsize=9, fontweight='bold')
+    # Create beautiful bar plot with seaborn
+    sns.barplot(data=df_melted, x='feature', y='importance', hue='model', 
+                palette=['#2E86AB', '#A23B72', '#F18F01', '#E63946', '#06FFA5', '#FFB700'],
+                alpha=0.9, edgecolor='black', linewidth=1)
     
     # Formatting
-    ax.set_xlabel('Features', fontweight='bold', fontsize=12)
-    ax.set_ylabel('Relative Importance (%)', fontweight='bold', fontsize=12)
+    ax.set_xlabel('Features', fontweight='bold', fontsize=13)
+    ax.set_ylabel('Feature Importance (%)', fontweight='bold', fontsize=13)
     ax.set_title('Feature Importance Comparison Across Models', 
-                fontweight='bold', fontsize=14, pad=20)
-    ax.set_xticks(x)
-    ax.set_xticklabels(df_normalized.index, rotation=45, ha='right')
-    ax.legend(loc='upper right', fontsize=11)
+                fontweight='bold', fontsize=15, pad=20)
+    ax.legend(title='Models', bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=11)
     ax.grid(True, alpha=0.3, axis='y')
-    ax.set_ylim(0, 110)
+    
+    # Rotate x-axis labels for better readability
+    plt.xticks(rotation=45, ha='right')
+    
+    # Add value labels on bars
+    for container in ax.containers:
+        ax.bar_label(container, fmt='%.1f', fontsize=9, fontweight='bold', padding=3)
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -261,11 +297,6 @@ def plot_shap_summary(shap_values, X_data, feature_names=None,
     """
     Create SHAP summary plot (beeswarm plot).
     """
-    try:
-        import shap
-    except ImportError:
-        raise ImportError("SHAP not installed. Install with: pip install shap")
-    
     plt.figure(figsize=(10, 6))
     
     if isinstance(X_data, pd.DataFrame):
@@ -283,43 +314,37 @@ def plot_shap_summary(shap_values, X_data, feature_names=None,
 
 def plot_shap_comparison(shap_comparison_df, save_path='results/shap_comparison.png'):
     """
-    Plot SHAP-based feature importance comparison across models.
+    Plot SHAP-based feature importance comparison across models using seaborn.
     """
-    fig, ax = plt.subplots(figsize=(12, 6))
+    # Reshape data for seaborn
+    df_melted = shap_comparison_df.reset_index().melt(id_vars='index', var_name='model', value_name='shap_importance')
+    df_melted = df_melted.rename(columns={'index': 'feature'})
     
-    # Create grouped bar chart
-    x = np.arange(len(shap_comparison_df.index))
-    width = 0.25
-    n_models = len(shap_comparison_df.columns)
+    # Set style
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(14, 7))
     
-    colors = ['#2E86AB', '#A23B72', '#F18F01', '#6A994E']
+    # Create beautiful bar plot with seaborn
+    sns.barplot(data=df_melted, x='feature', y='shap_importance', hue='model', 
+                palette=['#2E86AB', '#A23B72', '#F18F01', '#E63946', '#06FFA5', '#FFB700'],
+                alpha=0.9, edgecolor='black', linewidth=1)
     
-    for i, (model_name, color) in enumerate(zip(shap_comparison_df.columns, colors[:n_models])):
-        offset = width * (i - (n_models - 1) / 2)
-        bars = ax.bar(x + offset, shap_comparison_df[model_name], width,
-                     label=model_name, color=color, alpha=0.8, 
-                     edgecolor='black', linewidth=1.2)
-        
-        # Add value labels
-        for bar in bars:
-            height = bar.get_height()
-            if height > 5:
-                ax.text(bar.get_x() + bar.get_width()/2., height,
-                       f'{height:.0f}',
-                       ha='center', va='bottom', fontsize=9, fontweight='bold')
-    
-    ax.set_xlabel('Features', fontweight='bold', fontsize=12)
-    ax.set_ylabel('Mean |SHAP Value| (Normalized %)', fontweight='bold', fontsize=12)
-    ax.set_title('SHAP-based Feature Importance Comparison', 
-                fontweight='bold', fontsize=14, pad=20)
-    ax.set_xticks(x)
-    ax.set_xticklabels(shap_comparison_df.index, rotation=45, ha='right')
-    ax.legend(loc='upper right', fontsize=11)
+    # Formatting
+    ax.set_xlabel('Features', fontweight='bold', fontsize=13)
+    ax.set_ylabel('SHAP Importance (%)', fontweight='bold', fontsize=13)
+    ax.set_title('SHAP-based Feature Importance Comparison Across Models', 
+                fontweight='bold', fontsize=15, pad=20)
+    ax.legend(title='Models', bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=11)
     ax.grid(True, alpha=0.3, axis='y')
-    ax.set_ylim(0, 110)
+    
+    # Rotate x-axis labels for better readability
+    plt.xticks(rotation=45, ha='right')
+    
+    # Add value labels on bars
+    for container in ax.containers:
+        ax.bar_label(container, fmt='%.1f', fontsize=9, fontweight='bold', padding=3)
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.close()
     
     return fig, ax

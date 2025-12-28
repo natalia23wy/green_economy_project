@@ -29,7 +29,7 @@ def train_ridge(X_train, y_train, alpha=0.1):
 
 
 # Lasso
-def train_lasso(X_train, y_train, alpha=0.1):
+def train_lasso(X_train, y_train, alpha=1.0):
     """
     Train Lasso regression model (L1 REGULARIZATION).
     """
@@ -44,11 +44,11 @@ def train_random_forest(X_train, y_train, random_state=42):
     Train Random Forest regressor with conservative hyperparameters.
     """
     model = RandomForestRegressor(
-        n_estimators=100,
-        max_depth=5,
-        min_samples_split=4,
-        min_samples_leaf=2,
-        max_features=0.8,
+        n_estimators=50,
+        max_depth=3,
+        min_samples_split=8,
+        min_samples_leaf=4,
+        max_features=0.6,
         random_state=random_state,
         n_jobs=-1
     )
@@ -62,14 +62,14 @@ def train_xgboost(X_train, y_train, random_state=42):
     Train XGBoost regressor with regularization.
     """
     model = XGBRegressor(
-        n_estimators=200,
-        learning_rate=0.05,
-        max_depth=3,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        reg_lambda=2.0,
-        reg_alpha=0.5,
-        min_child_weight=3,
+        n_estimators=100,
+        learning_rate=0.02,
+        max_depth=2,
+        subsample=0.6,
+        colsample_bytree=0.6,
+        reg_lambda=5.0,
+        reg_alpha=2.0,
+        min_child_weight=5,
         random_state=random_state,
         objective="reg:squarederror"
     )
