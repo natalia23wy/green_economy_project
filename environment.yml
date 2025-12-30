@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - _libgcc_mutex=0.1=conda_forge
+  - requests
   - _openmp_mutex=4.5=2_gnu
   - alsa-lib=1.2.14=hb9d3cd8_0
   - brotli=1.2.0=hed03a55_1
