@@ -6,7 +6,10 @@ This module implements four regression models with hyperparameters optimized for
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from xgboost import XGBRegressor
-
+from src.hyperparameters_optimization import (
+    RIDGE_ALPHA, LASSO_ALPHA, RANDOM_FOREST_PARAMS, 
+    XGBOOST_PARAMS, GRADIENT_BOOSTING_PARAMS
+)
 
 # OLS
 def train_ols(X_train, y_train):
@@ -19,21 +22,21 @@ def train_ols(X_train, y_train):
 
 
 # Ridge
-def train_ridge(X_train, y_train, alpha=0.1):
+def train_ridge(X_train, y_train, alpha=RIDGE_ALPHA):
     """
     Train Ridge regression (L2 REGULARIZATION).
     """
-    model = Ridge(alpha=alpha, random_state=42)
+    model = Ridge(alpha=RIDGE_ALPHA, random_state=42)
     model.fit(X_train, y_train)
     return model
 
 
 # Lasso
-def train_lasso(X_train, y_train, alpha=1.0):
+def train_lasso(X_train, y_train, alpha=LASSO_ALPHA):
     """
     Train Lasso regression model (L1 REGULARIZATION).
     """
-    model = Lasso(alpha=alpha, random_state=42, max_iter=10000)
+    model = Lasso(alpha=LASSO_ALPHA, random_state=42, max_iter=10000)
     model.fit(X_train, y_train)
     return model
 
@@ -41,14 +44,14 @@ def train_lasso(X_train, y_train, alpha=1.0):
 # Random Forest
 def train_random_forest(X_train, y_train, random_state=42):
     """
-    Train Random Forest regressor with conservative hyperparameters.
+    Train Random Forest regressor with optimized hyperparameters.
     """
     model = RandomForestRegressor(
-        n_estimators=50,
-        max_depth=3,
-        min_samples_split=8,
-        min_samples_leaf=4,
-        max_features=0.6,
+n_estimators=RANDOM_FOREST_PARAMS['n_estimators'],
+        max_depth=RANDOM_FOREST_PARAMS['max_depth'],
+        min_samples_split=RANDOM_FOREST_PARAMS['min_samples_split'],
+        min_samples_leaf=RANDOM_FOREST_PARAMS['min_samples_leaf'],
+        max_features=RANDOM_FOREST_PARAMS['max_features'],
         random_state=random_state,
         n_jobs=-1
     )
@@ -59,17 +62,14 @@ def train_random_forest(X_train, y_train, random_state=42):
 # XGBoost
 def train_xgboost(X_train, y_train, random_state=42):
     """
-    Train XGBoost regressor with regularization.
+    Train XGBoost regressor with optimized hyperparameters.
     """
     model = XGBRegressor(
-        n_estimators=100,
-        learning_rate=0.02,
-        max_depth=2,
-        subsample=0.6,
-        colsample_bytree=0.6,
-        reg_lambda=5.0,
-        reg_alpha=2.0,
-        min_child_weight=5,
+        n_estimators=XGBOOST_PARAMS['n_estimators'],
+        learning_rate=XGBOOST_PARAMS['learning_rate'],
+        max_depth=XGBOOST_PARAMS['max_depth'],
+        subsample=XGBOOST_PARAMS['subsample'],
+        colsample_bytree=XGBOOST_PARAMS['colsample_bytree'],
         random_state=random_state,
         objective="reg:squarederror"
     )
@@ -86,13 +86,10 @@ def train_gradient_boosting(X_train, y_train, random_state=42):
     XGBoost for small datasets).
     """
     model = GradientBoostingRegressor(
-        n_estimators=50,
-        learning_rate=0.1,
-        max_depth=2,
-        min_samples_split=8,
-        min_samples_leaf=4,
-        subsample=0.8,
-        max_features=0.6,
+        n_estimators=GRADIENT_BOOSTING_PARAMS['n_estimators'],
+        learning_rate=GRADIENT_BOOSTING_PARAMS['learning_rate'],
+        max_depth=GRADIENT_BOOSTING_PARAMS['max_depth'],
+        subsample=GRADIENT_BOOSTING_PARAMS['subsample'],
         random_state=random_state
     )
     model.fit(X_train, y_train)

@@ -14,6 +14,7 @@ Usage:
 
 from src.data_loader import build_dataset_france, train_val_test_split, scale_features
 from src.models import train_ols, train_ridge, train_lasso, train_random_forest, train_xgboost, train_gradient_boosting
+from src.hyperparameters_optimization import RIDGE_ALPHA, LASSO_ALPHA, RANDOM_FOREST_PARAMS, XGBOOST_PARAMS, GRADIENT_BOOSTING_PARAMS
 from src.evaluation import (
     evaluate_model, 
     print_evaluation_report, 
@@ -89,20 +90,14 @@ def main():
     print(f"{separator}")
     print("2) TRAINING MODELS")
     print(separator)
-    print(" - Testing Ridge regularization strengths...")
-    ridge_test_results = test_ridge_regularization(
-        train_ridge, X_train_s, y_train, X_val_s, y_val,
-        alphas=[0, 0.1, 1.0, 10.0]
-    )
-    print(ridge_test_results.to_string(index=False))
 
     print(" - Training individual models...")
     ols_model = train_ols(X_train_s, y_train)
     print("   ✓ OLS trained.")
-    ridge_model = train_ridge(X_train_s, y_train, alpha=0.1)
-    print("   ✓ Ridge (alpha=0.1) trained.")
-    lasso_model = train_lasso(X_train_s, y_train, alpha=0.1)
-    print("   ✓ Lasso (alpha=0.1) trained.")
+    ridge_model = train_ridge(X_train_s, y_train)
+    print(f"   ✓ Ridge (alpha={RIDGE_ALPHA:.6f}) trained.")
+    lasso_model = train_lasso(X_train_s, y_train)
+    print(f"   ✓ Lasso (alpha={LASSO_ALPHA:.6f}) trained.")
     rf_model = train_random_forest(X_train_s, y_train)
     print("   ✓ Random Forest trained.")
     xgb_model = train_xgboost(X_train_s, y_train)
