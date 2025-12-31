@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.metrics import make_scorer, r2_score
 from xgboost import XGBRegressor
 
@@ -75,7 +75,10 @@ def optimize_linear_models(X_train_scaled, y_train, X_val_scaled, y_val):
 def optimize_tree_models(X_train, y_train):
     """Optimize tree models with GridSearchCV and return best parameters."""
     print("Optimizing tree models...")
-    
+
+    # Fixed CV splitter for temporal validation
+    cv = TimeSeriesSplit(n_splits=3)
+
     # Random Forest
     rf_grid = {
         'n_estimators': [10, 25, 50, 100],
@@ -89,8 +92,8 @@ def optimize_tree_models(X_train, y_train):
         RandomForestRegressor(random_state=42),
         rf_grid,
         scoring=make_scorer(r2_scorer),
-        cv=3,
-        n_jobs=-1,
+        cv=cv,
+        n_jobs=1,
         verbose=0,
         return_train_score=True
     )
@@ -118,8 +121,8 @@ def optimize_tree_models(X_train, y_train):
         XGBRegressor(random_state=42),
         xgb_grid,
         scoring=make_scorer(r2_scorer),
-        cv=3,
-        n_jobs=-1,
+        cv=cv,
+        n_jobs=1,
         verbose=0,
         return_train_score=True
     )
@@ -147,8 +150,8 @@ def optimize_tree_models(X_train, y_train):
         GradientBoostingRegressor(random_state=42),
         gb_grid,
         scoring=make_scorer(r2_scorer),
-        cv=3,
-        n_jobs=-1,
+        cv=cv,
+        n_jobs=1,
         verbose=0,
         return_train_score=True
     )

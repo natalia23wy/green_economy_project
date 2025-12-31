@@ -143,6 +143,12 @@ def main():
         )
     )
 
+    # Export R² performance table (train/val/test per model)
+    performance_r2 = comparison_df.pivot(index="Model", columns="Split", values="R²")
+    performance_r2 = performance_r2[["Train", "Val", "Test"]]
+    performance_r2.to_csv("results/model_performance_r2.csv")
+    print("   ✓ Saved: results/model_performance_r2.csv")
+
     print("\n" + "=" * 70)
     print("OVERFITTING DIAGNOSIS")
 
@@ -224,7 +230,8 @@ def main():
     importance_df = compare_feature_importance(models_importance_no_year, feature_names)
     plot_feature_importance(importance_df, save_path='results/feature_importance.png')
     print("   ✓ Saved: results/feature_importance.png")
-    
+    importance_df.to_csv('results/feature_importance.csv')
+    print("   ✓ Saved: results/feature_importance.csv")
 
     # Print feature importance table
     print("\n" + "=" * 70)
@@ -279,7 +286,10 @@ def main():
     print("   ✓ Saved: results/shap_comparison.png")
         
     print("\nSHAP-based feature importance comparison:")
+    shap_comparison.index.name = "feature"
     print(shap_comparison.to_string(float_format="%.2f"))
+    shap_comparison.to_csv('results/shap_feature_importance.csv')
+    print("   ✓ Saved: results/shap_feature_importance.csv")
         
     # Generate individual SHAP plots for best model (Ridge)
     print(" - Generating SHAP summary for Ridge...")
