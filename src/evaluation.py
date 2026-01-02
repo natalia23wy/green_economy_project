@@ -103,6 +103,22 @@ def compare_models(results_list):
     return df_comparison
 
 
+def create_r2_comparison_table(model_results_list):
+    """
+    Create R² comparison table for models with Train/Val/Test columns.
+    """
+    r2_data = []
+    for results in model_results_list:
+        r2_data.append({
+            'Model': results['model_name'],
+            'Train_R2': results['train']['metrics']['r2'],
+            'Val_R2': results['val']['metrics']['r2'], 
+            'Test_R2': results['test']['metrics']['r2']
+        })
+    
+    return pd.DataFrame(r2_data)
+
+
 def detect_overfitting(results):
     """
     Detect overfitting by comparing train and validation performance.
@@ -131,28 +147,6 @@ def detect_overfitting(results):
     }
     
     return diagnostics
-
-
-def test_ridge_regularization(train_func, X_train, y_train, X_val, y_val, alphas=[0, 0.1, 1.0, 10.0]):
-    """
-    Test different Ridge regularization strengths.
-    """
-    results = []
-    
-    for alpha in alphas:
-        model = train_func(X_train, y_train, alpha=alpha)
-        val_r2 = model.score(X_val, y_val)
-        val_pred = model.predict(X_val)
-        val_mape = mean_absolute_percentage_error(y_val, val_pred)
-        
-        results.append({
-            'alpha': alpha,
-            'val_r2': val_r2,
-            'val_mape': val_mape
-        })
-    
-    df_results = pd.DataFrame(results)
-    return df_results
 
 
 def get_feature_importance(model, feature_names, model_type='tree'):

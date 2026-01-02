@@ -19,8 +19,8 @@ from src.evaluation import (
     evaluate_model, 
     print_evaluation_report, 
     compare_models,
+    create_r2_comparison_table,
     detect_overfitting,
-    test_ridge_regularization,
     compare_feature_importance,
     explain_linear_model_shap,
     explain_tree_model_shap,
@@ -105,6 +105,14 @@ def main():
     gb_model = train_gradient_boosting(X_train_s, y_train)
     print("   ✓ Gradient Boosting trained.\n")
 
+    # Train separate models without year for feature importance analysis
+    ols_model_no_year = train_ols(X_train_s_no_year, y_train)
+    ridge_model_no_year = train_ridge(X_train_s_no_year, y_train, alpha=RIDGE_ALPHA)
+    lasso_model_no_year = train_lasso(X_train_s_no_year, y_train, alpha=LASSO_ALPHA)
+    rf_model_no_year = train_random_forest(X_train_s_no_year, y_train)
+    xgb_model_no_year = train_xgboost(X_train_s_no_year, y_train)
+    gb_model_no_year = train_gradient_boosting(X_train_s_no_year, y_train)
+    print("   ✓ Models without year feature trained.\n")
 
     # =========================================================================
     # 3. EVALUATE MODELS
@@ -121,6 +129,15 @@ def main():
     xgb_results = evaluate_model(xgb_model, X_train_s, y_train, X_val_s, y_val, X_test_s, y_test, model_name="XGBoost")
     gb_results = evaluate_model(gb_model, X_train_s, y_train, X_val_s, y_val, X_test_s, y_test, model_name="Gradient Boosting")
 
+    # Evaluate models without year_numeric for feature importance analysis
+    print(" - Evaluating models trained without year_numeric...")
+    ols_results_no_year = evaluate_model(ols_model_no_year, X_train_s_no_year, y_train, X_val_s_no_year, y_val, X_test_s_no_year, y_test, model_name="OLS")
+    ridge_results_no_year = evaluate_model(ridge_model_no_year, X_train_s_no_year, y_train, X_val_s_no_year, y_val, X_test_s_no_year, y_test, model_name="Ridge")
+    lasso_results_no_year = evaluate_model(lasso_model_no_year, X_train_s_no_year, y_train, X_val_s_no_year, y_val, X_test_s_no_year, y_test, model_name="Lasso")
+    rf_results_no_year = evaluate_model(rf_model_no_year, X_train_s_no_year, y_train, X_val_s_no_year, y_val, X_test_s_no_year, y_test, model_name="Random Forest")
+    xgb_results_no_year = evaluate_model(xgb_model_no_year, X_train_s_no_year, y_train, X_val_s_no_year, y_val, X_test_s_no_year, y_test, model_name="XGBoost")
+    gb_results_no_year = evaluate_model(gb_model_no_year, X_train_s_no_year, y_train, X_val_s_no_year, y_val, X_test_s_no_year, y_test, model_name="Gradient Boosting")
+    
     print("\n" + "=" * 70)
     print("MODEL PERFORMANCE")
 
@@ -133,15 +150,13 @@ def main():
     
     comparison_df = compare_models([ols_results, ridge_results, lasso_results, rf_results, xgb_results, gb_results])
 
-    print("\n" + "=" * 70)
-    print("VALIDATION SET COMPARISON")
 
-    print(
-    comparison_df[comparison_df['Split'] == 'Val'].to_string(
-        index=False,
-        float_format=lambda x: '%.3f' % x if abs(x) < 100 else '%.2e' % x
-        )
-    )
+    # Create R² comparison table for models with year
+    r2_df_with_year = create_r2_comparison_table([ols_results, ridge_results, lasso_results, rf_results, xgb_results, gb_results])
+    
+    print("\n" + "=" * 70)
+    print("R² PERFORMANCE WITH YEAR_NUMERIC")
+    print(r2_df_with_year.to_string(index=False, float_format="%.3f"))
 
     # Export R² performance table (train/val/test per model)
     performance_r2 = comparison_df.pivot(index="Model", columns="Split", values="R²")
@@ -210,13 +225,13 @@ def main():
     print(" - Computing and plotting feature importances (without year)...")
     feature_names = list(X_train.columns)  # Original features without year
     
-    # Train separate models without year for feature importance analysis
-    ols_model_no_year = train_ols(X_train_s_no_year, y_train)
-    ridge_model_no_year = train_ridge(X_train_s_no_year, y_train, alpha=0.1)
-    lasso_model_no_year = train_lasso(X_train_s_no_year, y_train, alpha=1.0)
-    rf_model_no_year = train_random_forest(X_train_s_no_year, y_train)
-    xgb_model_no_year = train_xgboost(X_train_s_no_year, y_train)
-    gb_model_no_year = train_gradient_boosting(X_train_s_no_year, y_train)
+
+    # Create R² comparison table for models without year
+    r2_df_no_year = create_r2_comparison_table([ols_results_no_year, ridge_results_no_year, lasso_results_no_year, rf_results_no_year, xgb_results_no_year, gb_results_no_year])
+    
+    print("\n" + "=" * 70)
+    print("R² PERFORMANCE WITHOUT YEAR_NUMERIC")
+    print(r2_df_no_year.to_string(index=False, float_format="%.3f"))
     
     models_importance_no_year = {
         'OLS': (ols_model_no_year, 'linear'),
