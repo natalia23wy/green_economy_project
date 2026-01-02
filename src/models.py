@@ -22,21 +22,25 @@ def train_ols(X_train, y_train):
 
 
 # Ridge
-def train_ridge(X_train, y_train, alpha=RIDGE_ALPHA):
+def train_ridge(X_train, y_train, alpha=None):
     """
     Train Ridge regression (L2 REGULARIZATION).
     """
-    model = Ridge(alpha=RIDGE_ALPHA, random_state=42)
+    if alpha is None:
+        alpha = RIDGE_ALPHA
+    model = Ridge(alpha=alpha, random_state=42)
     model.fit(X_train, y_train)
     return model
 
 
 # Lasso
-def train_lasso(X_train, y_train, alpha=LASSO_ALPHA):
+def train_lasso(X_train, y_train, alpha=None):
     """
     Train Lasso regression model (L1 REGULARIZATION).
     """
-    model = Lasso(alpha=LASSO_ALPHA, random_state=42, max_iter=10000)
+    if alpha is None:
+        alpha = LASSO_ALPHA
+    model = Lasso(alpha=alpha, random_state=42, max_iter=10000)
     model.fit(X_train, y_train)
     return model
 
