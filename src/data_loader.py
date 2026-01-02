@@ -280,7 +280,7 @@ def build_dataset_france(start_year=1990, end_year=2024, save=True, interpolate=
     df['year_since_1990'] = df['year'] - 1990
 
     if save:
-        df.to_csv("data/processed/france_1990_2024.csv", index=False)
+        df.to_csv("data/processed/france_1991_2024.csv", index=False)
 
     return df
 
