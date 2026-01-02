@@ -178,10 +178,10 @@ def main():
     print(r2_df_with_year.to_string(index=False, float_format="%.3f"))
 
     # Export R² performance table (train/val/test per model)
-    performance_r2 = comparison_df.pivot(index="Model", columns="Split", values="R²")
-    performance_r2 = performance_r2[["Train", "Val", "Test"]]
-    performance_r2.to_csv("results/model_performance_r2.csv")
-    print("   ✓ Saved: results/model_performance_r2.csv")
+    # Export R² performance table with year
+    print(" - Exporting R² performance table with year...")
+    r2_df_with_year.to_csv('results/r2_performance_with_year.csv', index=False)
+    print("   ✓ Saved: results/r2_performance_with_year.csv")
 
     print("\n" + "=" * 70)
     print("OVERFITTING DIAGNOSIS")
@@ -251,6 +251,11 @@ def main():
     print("\n" + "=" * 70)
     print("R² PERFORMANCE WITHOUT YEAR_NUMERIC")
     print(r2_df_no_year.to_string(index=False, float_format="%.3f"))
+
+    # Export R² performance table without year
+    print(" - Exporting R² performance table without year...")
+    r2_df_no_year.to_csv('results/r2_performance_without_year.csv', index=False)
+    print("   ✓ Saved: results/r2_performance_without_year.csv")
     
     models_importance_no_year = {
         'OLS': (ols_model_no_year, 'linear'),
