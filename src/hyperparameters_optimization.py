@@ -72,10 +72,18 @@ def optimize_linear_models(X_train_scaled, y_train, X_val_scaled, y_val):
     }
 
 
-def optimize_tree_models(X_train, y_train):
+def optimize_tree_models(X_train, y_train, X_train_without_year=None):
     """Optimize tree models with GridSearchCV and return best parameters."""
     print("Optimizing tree models...")
 
+    # Use data without year for proper feature importance
+    if X_train_without_year is not None:
+        X_train_cv = X_train_without_year
+        print("   Using features without year_numeric for tree models")
+    else:
+        X_train_cv = X_train
+        print("   Warning: Using all features including year_numeric")
+    
     # Fixed CV splitter for temporal validation
     cv = TimeSeriesSplit(n_splits=3)
 
@@ -173,7 +181,7 @@ def optimize_tree_models(X_train, y_train):
     }
 
 
-def optimize_all_models(X_train_scaled, y_train, X_val_scaled, y_val, run_tree_gridsearch=True):
+def optimize_all_models(X_train_scaled, y_train, X_val_scaled, y_val, X_train_without_year=None, run_tree_gridsearch=True):
     """
     Optimize all models and store best parameters in global variables.
     
@@ -184,9 +192,7 @@ def optimize_all_models(X_train_scaled, y_train, X_val_scaled, y_val, run_tree_g
     Returns:
         Dictionary with best parameters for all models
     """
-    print("=" * 60)
-    print("HYPERPARAMETER OPTIMIZATION")
-    print("=" * 60)
+
     
     # Optimize linear models first (using scaled data)
     linear_results = optimize_linear_models(X_train_scaled, y_train, X_val_scaled, y_val)
@@ -194,7 +200,7 @@ def optimize_all_models(X_train_scaled, y_train, X_val_scaled, y_val, run_tree_g
     # Optimize tree models (using scaled data)
     if run_tree_gridsearch:
         print("\nRunning GridSearchCV for tree models...")
-        tree_results = optimize_tree_models(X_train_scaled, y_train)
+        tree_results = optimize_tree_models(X_train_scaled, y_train, X_train_without_year)
     else:
         print("\nSkipping tree models (use run_tree_gridsearch=True to enable)")
         tree_results = {

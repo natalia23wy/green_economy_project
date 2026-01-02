@@ -84,6 +84,25 @@ def main():
 
 
     # =========================================================================
+    # 1.1 OPTIMIZE HYPERPARAMETERS
+    # =========================================================================
+
+    print(f"{separator}")
+    print("1.1) OPTIMIZING HYPERPARAMETERS")
+    print(separator)
+
+    from src.hyperparameters_optimization import optimize_all_models
+
+    optimize_all_models(
+        X_train_s, y_train, X_val_s, y_val, 
+        X_train_s_no_year,
+        run_tree_gridsearch=True
+    )
+    print("   ✓ Hyperparameters optimized and stored in global variables")
+    print()
+
+
+    # =========================================================================
     # 2. TRAIN MODELS
     # =========================================================================
 
